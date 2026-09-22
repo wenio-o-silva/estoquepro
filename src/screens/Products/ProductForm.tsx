@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 
 export function ProductForm() {
   const router = useRouter();
-  const { addProduct } = useStore();
+  const searchParams = useSearchParams();
+  const id = searchParams?.get('id');
+  const { products, addProduct, updateProduct, deleteProduct, currentUser } = useStore();
   
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
+
+  useEffect(() => {
+    if (id && products) {
+      const product = products.find(p => p.id === id);
+      if (product) {
+        setName(product.name);
+        setPrice(product.price.toString());
+        setStock(product.stock.toString());
+      }
+    }
+  }, [id, products]);
 
   const handlePriceBlur = () => {
     if (price) {
@@ -24,12 +37,27 @@ export function ProductForm() {
     e.preventDefault();
     if (!name || !price) return;
     
-    addProduct({
-      name,
-      price: parseFloat(price.replace(',', '.')),
-      stock: parseInt(stock) || 0
-    });
+    if (id) {
+      updateProduct(id, {
+        name,
+        price: parseFloat(price.replace(',', '.')),
+        stock: parseInt(stock) || 0
+      });
+    } else {
+      addProduct({
+        name,
+        price: parseFloat(price.replace(',', '.')),
+        stock: parseInt(stock) || 0
+      });
+    }
     router.push('/products');
+  };
+
+  const handleDelete = () => {
+    if (id && deleteProduct) {
+      deleteProduct(id);
+      router.push('/products');
+    }
   };
 
   return (
@@ -38,7 +66,7 @@ export function ProductForm() {
         <button onClick={() => router.back()} className="p-2 -ml-2 text-gray-600">
           <ArrowLeft size={24} />
         </button>
-        <h2 className="text-xl font-bold ml-2">Novo Produto</h2>
+        <h2 className="text-xl font-bold ml-2">{id ? 'Editar Produto' : 'Novo Produto'}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -61,6 +89,7 @@ export function ProductForm() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={price}
                 onChange={e => setPrice(e.target.value)}
                 onBlur={handlePriceBlur}
@@ -83,12 +112,23 @@ export function ProductForm() {
           </form>
 
           <div className="p-4 md:p-8 bg-white md:bg-transparent border-t border-gray-100 md:border-none absolute md:relative bottom-0 left-0 right-0 z-10">
-            <button 
-              onClick={handleSubmit}
-              className="w-full bg-blue-900 text-white font-bold py-4 rounded-xl text-lg hover:bg-blue-800 transition-colors shadow-sm"
-            >
-              Salvar Produto
-            </button>
+            <div className="pt-4 flex gap-4">
+              <button 
+                onClick={handleSubmit}
+                disabled={!name || !price || !stock}
+                className="flex-1 bg-blue-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl text-lg hover:bg-blue-800 transition-colors shadow-sm"
+              >
+                {id ? 'Salvar Alterações' : 'Cadastrar Produto'}
+              </button>
+              {id && currentUser?.role === 'admin' && (
+                <button 
+                  onClick={handleDelete}
+                  className="w-16 flex items-center justify-center bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                >
+                  <Trash2 size={24} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

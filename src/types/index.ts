@@ -4,7 +4,8 @@ export type Product = {
   price: number;
   stock: number;
   createdAt?: any;
-  userId?: string;
+  userId?: string; // Store ID
+  createdBy?: string; // Employee ID
   deleted?: boolean;
 };
 
@@ -14,12 +15,25 @@ export type SaleItem = {
   price: number;
 };
 
+export type Payment = {
+  id: string;
+  amount: number;
+  date: string;
+};
+
 export type Sale = {
   id: string;
   date: string;
   total: number;
   items: SaleItem[];
-  userId?: string;
+  userId?: string; // Store ID
+  createdBy?: string; // Employee ID
+  paymentMethod?: 'PIX' | 'DINHEIRO' | 'CARTAO' | 'FIADO';
+  status?: 'PAGO' | 'PENDENTE';
+  customerName?: string;
+  customerPhone?: string;
+  expectedPaymentDate?: string;
+  payments?: Payment[];
 };
 
 export type StockMovement = {
@@ -29,15 +43,18 @@ export type StockMovement = {
   qty: number;
   date: string;
   reason?: string;
-  userId?: string;
+  userId?: string; // Store ID
+  createdBy?: string; // Employee ID
 };
 
 export type User = {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'colaborador';
+  adminId?: string; // Used by colaborador to link to store owner
   financialClosingDay?: number;
+  lowStockThreshold?: number;
 };
 
 export type Expense = {
@@ -48,7 +65,8 @@ export type Expense = {
   priority: 'ALTA' | 'NORMAL' | 'BAIXA';
   status: 'PENDENTE' | 'PAGO';
   paymentDate?: string;
-  userId?: string;
+  userId?: string; // Store ID
+  createdBy?: string; // Employee ID
   recurring?: boolean;
   recurringId?: string;
 };

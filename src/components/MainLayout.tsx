@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, Package, ShoppingCart, BarChart2, Menu, LogOut, DollarSign } from 'lucide-react';
+import { Home, Package, ShoppingCart, BarChart2, Menu, LogOut, DollarSign, History } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import { auth } from '@/lib/firebase/config';
 import { signOut } from 'firebase/auth';
@@ -10,6 +10,7 @@ import { signOut } from 'firebase/auth';
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { currentUser } = useStore();
 
   const getTitle = () => {
     if (pathname === '/') return 'Dashboard';
@@ -27,7 +28,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { icon: Home, label: 'Início', path: '/' },
     { icon: Package, label: 'Produtos', path: '/products' },
     { icon: ShoppingCart, label: 'Vendas', path: '/sales/new' },
-    { icon: DollarSign, label: 'Raio-X', path: '/financial' },
+    currentUser?.role === 'admin' 
+      ? { icon: DollarSign, label: 'Raio-X', path: '/financial' }
+      : { icon: History, label: 'Histórico', path: '/sales/history' },
     { icon: Menu, label: 'Mais', path: '/more' },
   ];
 
@@ -48,7 +51,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path) && item.path !== '/sales/new');
-            const actualIsActive = item.path === '/sales/new' ? pathname.startsWith('/sales') : isActive;
+            const actualIsActive = item.path === '/sales/new' ? pathname === '/sales/new' : isActive;
 
             return (
               <button
@@ -97,7 +100,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path) && item.path !== '/sales/new');
-              const actualIsActive = item.path === '/sales/new' ? pathname.startsWith('/sales') : isActive;
+              const actualIsActive = item.path === '/sales/new' ? pathname === '/sales/new' : isActive;
 
               return (
                 <button

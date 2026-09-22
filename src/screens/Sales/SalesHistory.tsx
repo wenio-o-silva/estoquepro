@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
-import { ArrowLeft, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, FileText, ChevronDown, ChevronUp, CreditCard, Banknote, QrCode, BookOpen } from 'lucide-react';
 import { Sale } from '@/types';
 
 export function SalesHistory() {
@@ -11,6 +11,14 @@ export function SalesHistory() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const sortedSales = [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const groupedSales = sortedSales.reduce((acc, sale) => {
+    const d = new Date(sale.date);
+    const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    if (!acc[dateStr]) acc[dateStr] = [];
+    acc[dateStr].push(sale);
+    return acc;
+  }, {} as Record<string, Sale[]>);
 
   const getOrderName = (sale: Sale) => {
     if (sale.items.length === 0) return `Pedido #${sale.id.substring(0, 4)}`;
@@ -22,6 +30,16 @@ export function SalesHistory() {
       return `${displayName} (+${sale.items.length - 1})`;
     }
     return displayName;
+  };
+
+  const getPaymentIcon = (method?: string) => {
+    switch (method) {
+      case 'PIX': return <QrCode size={14} className="text-teal-600" />;
+      case 'DINHEIRO': return <Banknote size={14} className="text-emerald-600" />;
+      case 'CARTAO': return <CreditCard size={14} className="text-blue-600" />;
+      case 'FIADO': return <BookOpen size={14} className="text-orange-600" />;
+      default: return null;
+    }
   };
 
   const toggleExpand = (id: string) => {
@@ -43,11 +61,17 @@ export function SalesHistory() {
             Nenhuma venda registrada.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedSales.map(sale => {
-              const isExpanded = expandedId === sale.id;
+          <div className="flex flex-col gap-8">
+            {Object.entries(groupedSales).map(([dateStr, daySales]) => (
+              <div key={dateStr}>
+                <h3 className="text-gray-500 font-bold mb-3 md:mb-4 capitalize sticky top-0 bg-gray-50 py-2 z-10">
+                  {dateStr}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {daySales.map(sale => {
+                    const isExpanded = expandedId === sale.id;
 
-              return (
+                    return (
                 <div 
                   key={sale.id} 
                   onClick={() => toggleExpand(sale.id)}
@@ -76,7 +100,16 @@ export function SalesHistory() {
 
                   {isExpanded && (
                     <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col gap-3">
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Itens do Pedido</h4>
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Itens do Pedido</h4>
+                        {sale.paymentMethod && (
+                          <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded text-xs font-medium text-gray-600 border border-gray-100">
+                            {getPaymentIcon(sale.paymentMethod)}
+                            <span className="capitalize">{sale.paymentMethod.toLowerCase()}</span>
+                          </div>
+                        )}
+                      </div>
+
                       {sale.items.map((item, idx) => {
                         const product = products.find(p => p.id === item.productId);
                         return (
@@ -91,8 +124,11 @@ export function SalesHistory() {
                 </div>
               );
             })}
+            </div>
           </div>
-        )}
+        ))}
+        </div>
+      )}
       </div>
     </div>
   );

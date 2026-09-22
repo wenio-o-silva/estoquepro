@@ -6,7 +6,7 @@ import { useStore } from '@/context/StoreContext';
 import { Expense } from '@/types';
 import { 
   ArrowLeft, Plus, CheckCircle2, Circle, MoreVertical, 
-  TrendingUp, TrendingDown, DollarSign, Calendar, X, Settings 
+  TrendingUp, TrendingDown, DollarSign, Calendar, X, Settings, BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -19,6 +19,14 @@ import {
 export function FinancialHealth() {
   const router = useRouter();
   const { sales, expenses, currentUser, addExpense, updateExpense, deleteExpense, updateUser } = useStore();
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="p-4 text-center text-red-500 mt-10">
+        Acesso negado. Apenas administradores.
+      </div>
+    );
+  }
 
   const [period, setPeriod] = useState<string>('0');
   const [customStart, setCustomStart] = useState('');
@@ -144,12 +152,37 @@ export function FinancialHealth() {
   }, [period, customStart, customEnd, currentUser?.financialClosingDay]);
 
   const periodSalesTotal = useMemo(() => {
-    return sales
-      .filter(s => {
+    let totalEntradas = 0;
+    sales.forEach(s => {
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach(p => {
+          const d = new Date(p.date);
+          if (d >= dateRange.start && d <= dateRange.end) {
+            totalEntradas += p.amount;
+          }
+        });
+      } else if (s.status !== 'PENDENTE') {
         const d = new Date(s.date);
-        return d >= dateRange.start && d <= dateRange.end;
-      })
-      .reduce((acc, s) => acc + s.total, 0);
+        if (d >= dateRange.start && d <= dateRange.end) {
+          totalEntradas += s.total;
+        }
+      }
+    });
+    return totalEntradas;
+  }, [sales, dateRange]);
+
+  const periodReceivablesTotal = useMemo(() => {
+    let totalAReceber = 0;
+    sales.forEach(s => {
+      if (s.status === 'PENDENTE') {
+        const d = new Date(s.date);
+        if (d >= dateRange.start && d <= dateRange.end) {
+          const totalPaid = (s.payments || []).reduce((acc, p) => acc + p.amount, 0);
+          totalAReceber += (s.total - totalPaid);
+        }
+      }
+    });
+    return totalAReceber;
   }, [sales, dateRange]);
 
   const periodExpensesTotal = useMemo(() => {
@@ -392,21 +425,32 @@ export function FinancialHealth() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <TrendingUp size={16} className="text-green-600" />
-                <span className="text-xs font-bold uppercase">Entradas</span>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+              <div className="flex items-center gap-1 text-gray-500 mb-1">
+                <TrendingUp size={14} className="text-green-600" />
+                <span className="text-[10px] md:text-xs font-bold uppercase">Entradas</span>
               </div>
-              <div className="text-lg md:text-xl font-bold text-gray-900">R$ {periodSalesTotal.toFixed(2)}</div>
+              <div className="text-sm md:text-lg font-bold text-green-700">R$ {periodSalesTotal.toFixed(2)}</div>
             </div>
             
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <TrendingDown size={16} className="text-red-500" />
-                <span className="text-xs font-bold uppercase">Saídas</span>
+            <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+              <div className="flex items-center gap-1 text-gray-500 mb-1">
+                <TrendingDown size={14} className="text-red-500" />
+                <span className="text-[10px] md:text-xs font-bold uppercase">Saídas</span>
               </div>
-              <div className="text-lg md:text-xl font-bold text-gray-900">R$ {periodExpensesTotal.toFixed(2)}</div>
+              <div className="text-sm md:text-lg font-bold text-red-600">R$ {periodExpensesTotal.toFixed(2)}</div>
+            </div>
+
+            <div 
+              onClick={() => router.push('/notebook')}
+              className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-1 text-gray-500 mb-1">
+                <BookOpen size={14} className="text-orange-500" />
+                <span className="text-[10px] md:text-xs font-bold uppercase">A Receber</span>
+              </div>
+              <div className="text-sm md:text-lg font-bold text-orange-600">R$ {periodReceivablesTotal.toFixed(2)}</div>
             </div>
           </div>
 

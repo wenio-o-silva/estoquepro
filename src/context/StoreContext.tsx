@@ -5,7 +5,7 @@ import { Product, Sale, SaleItem, StockMovement, User, Expense } from '@/types';
 import { collection, onSnapshot, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseAuthUser } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase/config';
-import { addProduct, addSale, addStockMovement, updateProductStock, getUserRole, updateProduct as updateProductService, addExpense, updateExpense as updateExpenseService, deleteExpense as deleteExpenseService, updateUser as updateUserService } from '@/lib/firebase/services';
+import { addProduct, addSale, addStockMovement, updateProductStock, getUserRole, updateProduct as updateProductService, addExpense, updateExpense as updateExpenseService, deleteExpense as deleteExpenseService, updateUser as updateUserService, updateSale as updateSaleService, createEmployeeAuth } from '@/lib/firebase/services';
 
 type StoreState = {
   products: Product[];
@@ -19,13 +19,15 @@ type StoreState = {
   logout: () => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
-  addSale: (items: SaleItem[]) => Promise<void>;
+  addSale: (saleData: Omit<Sale, 'id'>) => Promise<void>;
+  updateSale: (id: string, data: Partial<Sale>) => Promise<void>;
   addStockEntry: (productId: string, qty: number, reason?: string) => Promise<void>;
   addUser: (user: User) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   updateExpense: (id: string, data: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<StoreState | undefined>(undefined);
@@ -57,7 +59,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             id: user.uid,
             name: user.displayName || user.email || 'Usuário',
             email: user.email || '',
-            role: 'employee'
+            role: 'colaborador'
           });
         }
       } else {
@@ -71,22 +73,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Data listeners
   useEffect(() => {
     if (!currentUser) return; // Only fetch if logged in
+    
+    // storeId é o ID do admin. Se for colaborador, usa o adminId.
+    const storeId = currentUser.role === 'admin' ? currentUser.id : currentUser.adminId;
+    
+    if (!storeId) return;
 
-    const qProducts = query(collection(db, 'products'), where('userId', '==', currentUser.id));
+    const qProducts = query(collection(db, 'products'), where('userId', '==', storeId));
     const unsubProducts = onSnapshot(qProducts, (snapshot) => {
       const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       prods.sort((a, b) => a.name.localeCompare(b.name));
       setProducts(prods);
     });
 
-    const qSales = query(collection(db, 'sales'), where('userId', '==', currentUser.id));
+    const qSales = query(collection(db, 'sales'), where('userId', '==', storeId));
     const unsubSales = onSnapshot(qSales, (snapshot) => {
       const sls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
       sls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setSales(sls);
     });
 
-    const qMovements = query(collection(db, 'movements'), where('userId', '==', currentUser.id));
+    const qMovements = query(collection(db, 'movements'), where('userId', '==', storeId));
     const unsubMovements = onSnapshot(qMovements, (snapshot) => {
       const movs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StockMovement));
       movs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -94,10 +101,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+      const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      setUsers(allUsers.filter(u => u.id === storeId || u.adminId === storeId));
     });
 
-    const qExpenses = query(collection(db, 'expenses'), where('userId', '==', currentUser.id));
+    const qExpenses = query(collection(db, 'expenses'), where('userId', '==', storeId));
     const unsubExpenses = onSnapshot(qExpenses, (snapshot) => {
       const exps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
       exps.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
@@ -115,65 +123,70 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const handleAddProduct = async (prod: Omit<Product, 'id'>) => {
     if (!currentUser) return;
-    const id = await addProduct({ ...prod, userId: currentUser.id });
+    const storeId = currentUser.role === 'admin' ? currentUser.id : currentUser.adminId;
+    const id = await addProduct({ ...prod, userId: storeId, createdBy: currentUser.id });
     if (prod.stock > 0) {
       await addStockMovement({
         productId: id,
         type: 'in',
         qty: prod.stock,
         date: new Date().toISOString(),
-        userId: currentUser.id
+        reason: 'Estoque Inicial',
+        userId: storeId,
+        createdBy: currentUser.id
       });
     }
   };
 
   const handleUpdateProduct = async (id: string, data: Partial<Product>) => {
-    if (!currentUser) return;
     await updateProductService(id, data);
   };
 
-  const handleAddSale = async (items: SaleItem[]) => {
+  const handleAddSale = async (sale: Omit<Sale, 'id'>) => {
     if (!currentUser) return;
-    const total = items.reduce((acc, item) => acc + item.price * item.qty, 0);
+    const storeId = currentUser.role === 'admin' ? currentUser.id : currentUser.adminId;
+    const id = await addSale({ ...sale, userId: storeId, createdBy: currentUser.id });
     
-    await addSale({
-      date: new Date().toISOString(),
-      total,
-      items,
-      userId: currentUser.id
-    });
-    
-    // Update stock and add movements
-    for (const item of items) {
+    // Decrement stock for each item
+    for (const item of sale.items) {
       const product = products.find(p => p.id === item.productId);
       if (product) {
-        await updateProductStock(item.productId, product.stock - item.qty);
+        await updateProductStock(product.id, product.stock - item.qty);
         await addStockMovement({
-          productId: item.productId,
+          productId: product.id,
           type: 'out',
           qty: item.qty,
           date: new Date().toISOString(),
-          userId: currentUser.id
+          reason: `Venda #${id.substring(0, 5)}`,
+          userId: storeId,
+          createdBy: currentUser.id
         });
       }
     }
   };
 
+  const handleUpdateSale = async (id: string, data: Partial<Sale>) => {
+    if (!currentUser) return;
+    await updateSaleService(id, data);
+  };
+
   const handleAddStockEntry = async (productId: string, qty: number, reason?: string) => {
     if (!currentUser) return;
+    const storeId = currentUser.role === 'admin' ? currentUser.id : currentUser.adminId;
     const movementType: 'in' | 'out' = qty > 0 ? 'in' : 'out';
     const absQty = Math.abs(qty);
     
     const product = products.find(p => p.id === productId);
     if (product) {
-      await updateProductStock(productId, product.stock + qty);
+      await updateProductStock(product.id, product.stock + qty);
       await addStockMovement({
         productId,
         type: movementType,
         qty: absQty,
         date: new Date().toISOString(),
         reason,
-        userId: currentUser.id
+        userId: storeId,
+        createdBy: currentUser.id
       });
     }
   };
@@ -199,7 +212,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
     if (!currentUser) return;
-    await addExpense({ ...expense, userId: currentUser.id });
+    const storeId = currentUser.role === 'admin' ? currentUser.id : currentUser.adminId;
+    await addExpense({ ...expense, userId: storeId, createdBy: currentUser.id });
   };
 
   const handleUpdateExpense = async (id: string, data: Partial<Expense>) => {
@@ -219,12 +233,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addProduct: handleAddProduct, 
       updateProduct: handleUpdateProduct,
       addSale: handleAddSale, 
+      updateSale: handleUpdateSale,
       addStockEntry: handleAddStockEntry,
       addUser: handleAddUser,
       addExpense: handleAddExpense,
       updateExpense: handleUpdateExpense,
       deleteExpense: handleDeleteExpense,
-      updateUser: handleUpdateUser
+      updateUser: handleUpdateUser,
+      deleteProduct: async (id: string) => {
+        const { deleteDoc, doc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'products', id));
+      }
     }}>
       {children}
     </StoreContext.Provider>

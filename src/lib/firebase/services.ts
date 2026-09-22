@@ -1,12 +1,14 @@
 import { collection, doc, getDocs, getDoc, addDoc, updateDoc, query, where, orderBy, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { db } from './config';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { db, firebaseConfig } from './config';
 import { Product, Sale, SaleItem, StockMovement, User, Expense } from '@/types';
 
 // Products
-export const getProducts = async (): Promise<Product[]> => {
-  const q = query(collection(db, 'products'), orderBy('name'));
+export const getProducts = async (adminId: string): Promise<Product[]> => {
+  const q = query(collection(db, 'products'), where('adminId', '==', adminId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)).sort((a, b) => a.name.localeCompare(b.name));
 };
 
 export const addProduct = async (product: Omit<Product, 'id'>) => {
@@ -28,25 +30,26 @@ export const updateProduct = async (productId: string, data: Partial<Product>) =
 };
 
 // Sales
-export const getSales = async (): Promise<Sale[]> => {
-  const q = query(collection(db, 'sales'), orderBy('date', 'desc'));
+export const getSales = async (adminId: string): Promise<Sale[]> => {
+  const q = query(collection(db, 'sales'), where('adminId', '==', adminId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export const addSale = async (sale: Omit<Sale, 'id'>) => {
   const docRef = await addDoc(collection(db, 'sales'), {
     ...sale,
-    date: new Date().toISOString()
+    date: sale.date || new Date().toISOString(),
+    createdAt: new Date().toISOString()
   });
   return docRef.id;
 };
 
 // Stock Movements
-export const getStockMovements = async (): Promise<StockMovement[]> => {
-  const q = query(collection(db, 'movements'), orderBy('date', 'desc'));
+export const getStockMovements = async (adminId: string): Promise<StockMovement[]> => {
+  const q = query(collection(db, 'movements'), where('adminId', '==', adminId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StockMovement));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StockMovement)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export const addStockMovement = async (movement: Omit<StockMovement, 'id'>) => {
@@ -58,6 +61,11 @@ export const addStockMovement = async (movement: Omit<StockMovement, 'id'>) => {
 };
 
 // Expenses
+export const updateSale = async (id: string, data: Partial<Sale>) => {
+  const docRef = doc(db, 'sales', id);
+  await updateDoc(docRef, data);
+};
+
 export const addExpense = async (expense: Omit<Expense, 'id'>) => {
   const docRef = await addDoc(collection(db, 'expenses'), {
     ...expense,
@@ -89,7 +97,7 @@ export const getUserRole = async (uid: string): Promise<User | null> => {
 
 export const updateUser = async (uid: string, data: Partial<User>) => {
   const ref = doc(db, 'users', uid);
-  await updateDoc(ref, data);
+  await setDoc(ref, data, { merge: true });
 };
 
 export const createUserRole = async (user: User) => {
@@ -97,7 +105,21 @@ export const createUserRole = async (user: User) => {
   await setDoc(ref, user);
 };
 
-export const getUsers = async (): Promise<User[]> => {
+export const getUsers = async (adminId?: string): Promise<User[]> => {
+  // Se adminId for passado, busca os usuários daquela loja.
+  // Como admin também precisa se ver, o filtro pode ser feito no cliente ou garantir que adminId é salvo no próprio admin
   const snapshot = await getDocs(collection(db, 'users'));
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+  const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+  if (adminId) {
+    return users.filter(u => u.id === adminId || u.adminId === adminId);
+  }
+  return users;
+};
+
+export const createEmployeeAuth = async (email: string, pass: string): Promise<string> => {
+  const tempApp = initializeApp(firebaseConfig, 'TempApp' + Date.now());
+  const tempAuth = getAuth(tempApp);
+  const cred = await createUserWithEmailAndPassword(tempAuth, email, pass);
+  await tempAuth.signOut();
+  return cred.user.uid;
 };

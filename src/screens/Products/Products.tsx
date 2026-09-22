@@ -66,7 +66,7 @@ export function Products() {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 focus:bg-gray-50 focus:text-blue-900 flex items-center gap-3" 
-                  onClick={() => router.push(`/products/${product.id}`)}
+                  onClick={() => router.push(`/products/edit?id=${product.id}`)}
                 >
                   <Settings size={18} className="text-gray-500" /> Configurações
                 </DropdownMenuItem>

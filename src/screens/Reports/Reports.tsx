@@ -12,7 +12,15 @@ import {
 
 export function Reports() {
   const router = useRouter();
-  const { sales, products } = useStore();
+  const { sales, products, currentUser } = useStore();
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="p-4 text-center text-red-500 mt-10">
+        Acesso negado. Apenas administradores.
+      </div>
+    );
+  }
 
   const [reportType, setReportType] = useState<'weekly' | 'monthly'>('weekly');
   const [timeOffset, setTimeOffset] = useState(0);
@@ -183,7 +191,7 @@ export function Reports() {
       totalQuantity,
       avgValue,
       avgQuantity,
-      bestPeriod: bestPeriod ? (reportType === 'weekly' ? bestPeriod.name : bestPeriod.label) : '-'
+      bestPeriod: bestPeriod ? (reportType === 'weekly' ? bestPeriod.name : (bestPeriod as any).label) : '-'
     };
   }, [chartData, reportType, timeOffset]);
 

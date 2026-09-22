@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
 import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ProductForm } from './ProductForm';
 
-export function ProductEdit({ id }: { id: string }) {
+export function ProductEdit() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
   const { products, updateProduct } = useStore();
   
   const [name, setName] = useState('');
@@ -14,6 +17,10 @@ export function ProductEdit({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) {
+      router.push('/products');
+      return;
+    }
     const product = products.find(p => p.id === id);
     if (product) {
       setName(product.name);
@@ -23,7 +30,7 @@ export function ProductEdit({ id }: { id: string }) {
       // Products loaded but not found -> perhaps deleted or invalid ID
       router.push('/products');
     }
-  }, [products, id, router]);
+  }, [id, products, router]);
 
   const handlePriceBlur = () => {
     if (price) {
@@ -36,7 +43,7 @@ export function ProductEdit({ id }: { id: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price) return;
+    if (!name || !price || !id) return;
     
     await updateProduct(id, {
       name,
@@ -46,6 +53,7 @@ export function ProductEdit({ id }: { id: string }) {
   };
 
   const handleDelete = async () => {
+    if (!id) return;
     const confirm = window.confirm("Tem certeza que deseja excluir este produto? Ele continuará aparecendo no histórico de vendas passadas, mas não poderá mais ser vendido.");
     if (confirm) {
       await updateProduct(id, { deleted: true });

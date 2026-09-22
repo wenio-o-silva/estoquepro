@@ -1,12 +1,10 @@
-"use client";
-
 import { Suspense } from 'react';
-import { Stock } from '@/screens/Stock/Stock';
+import { ProductEdit } from '@/screens/Products/ProductEdit';
 
 export default function Page() {
   return (
     <Suspense fallback={<div>Carregando...</div>}>
-      <Stock />
+      <ProductEdit />
     </Suspense>
   );
 }

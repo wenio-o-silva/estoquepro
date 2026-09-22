@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
-import { ArrowUpRight, ArrowDownRight, Plus } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Plus, Settings, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function Stock() {
   const router = useRouter();
-  const { movements, products } = useStore();
-  const [tab, setTab] = useState<'movements' | 'low_stock'>('movements');
+  const { movements, products, currentUser, updateUser } = useStore();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams?.get('tab') === 'low_stock' ? 'low_stock' : 'movements';
+  const [tab, setTab] = useState<'movements' | 'low_stock'>(initialTab);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [thresholdValue, setThresholdValue] = useState('');
 
   // Sort movements by date desc
   const sortedMovements = [...movements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const lowStockProducts = products.filter(p => p.stock < 5);
+  
+  const threshold = currentUser?.lowStockThreshold ?? 5;
+  const lowStockProducts = products.filter(p => p.stock < threshold);
 
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || 'Produto Excluído';
 
@@ -40,6 +48,21 @@ export function Stock() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 md:px-8 pb-24 md:pb-8">
+        {tab === 'low_stock' && (
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-gray-600 font-medium">Produtos precisando de atenção</h2>
+            <button 
+              onClick={() => {
+                setThresholdValue(threshold.toString());
+                setIsConfigOpen(true);
+              }}
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-900 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+            >
+              <Settings size={16} />
+              <span className="hidden md:inline">Configurar Limite</span>
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {tab === 'movements' ? (
             sortedMovements.map(m => (
@@ -112,6 +135,61 @@ export function Stock() {
       >
         <Plus size={28} />
       </button>
+
+      {/* Config Modal */}
+      {isConfigOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-gray-800">Alerta de Estoque Baixo</h3>
+              <button onClick={() => setIsConfigOpen(false)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-5">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Avisar quando o estoque for menor que:</label>
+              <input 
+                type="number" 
+                min="1"
+                value={thresholdValue}
+                onChange={(e) => setThresholdValue(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-900"
+              />
+              <p className="text-xs text-gray-500 mt-2">Atualmente o sistema te avisa quando um produto tem menos de {threshold} unidades.</p>
+            </div>
+
+            <div className="p-5 bg-gray-50 flex gap-3">
+              <button 
+                onClick={() => setIsConfigOpen(false)}
+                className="flex-1 bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={async () => {
+                  const val = parseInt(thresholdValue);
+                  if (!isNaN(val) && val > 0 && currentUser) {
+                    try {
+                      await updateUser(currentUser.id, { lowStockThreshold: val });
+                      toast.success('Limite atualizado!');
+                      setIsConfigOpen(false);
+                    } catch (e: any) {
+                      console.error("Update User Error:", e);
+                      toast.error('Erro ao atualizar limite: ' + (e.message || 'Desconhecido'));
+                    }
+                  } else {
+                    toast.error('Valor inválido.');
+                  }
+                }}
+                className="flex-1 bg-blue-900 text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition-colors"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
