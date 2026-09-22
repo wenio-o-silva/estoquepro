@@ -49,7 +49,7 @@ export function Signup() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-blue-900 text-white justify-center px-6">
+    <div className="flex flex-col min-h-[100dvh] w-full bg-blue-900 text-white justify-center px-6">
       <div className="w-full max-w-md mx-auto">
         <div className="flex flex-col items-center mb-12">
           <div className="bg-white/20 p-4 rounded-2xl mb-4">

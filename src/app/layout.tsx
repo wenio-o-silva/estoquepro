@@ -26,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-[100dvh] antialiased`}>
+      <body className="min-h-[100dvh] flex flex-col bg-background text-foreground">
         <StoreProvider>
           <ProtectedRoute>
             {children}

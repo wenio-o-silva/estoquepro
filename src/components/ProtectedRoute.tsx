@@ -16,7 +16,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [currentUser, loading, pathname, router]);
 
   if (loading) {
-    return <div className="flex h-screen w-full items-center justify-center">Carregando...</div>;
+    return <div className="flex h-[100dvh] w-full items-center justify-center">Carregando...</div>;
   }
 
   if (!currentUser && pathname !== '/login' && pathname !== '/signup') {

@@ -40,7 +40,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50 overflow-hidden relative">
+    <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-gray-50 overflow-hidden relative">
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-blue-900 text-white shrink-0">
         <div className="p-6 text-2xl font-bold border-b border-white/10 flex items-center gap-3">

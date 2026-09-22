@@ -347,15 +347,15 @@ export function Sale() {
       {/* Checkout Modal */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
               <h3 className="font-bold text-xl text-gray-800">Pagamento</h3>
               <button onClick={() => setIsCheckoutOpen(false)} className="p-2 bg-gray-50 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-6 flex flex-col gap-6 overflow-y-auto flex-1">
               <div className="flex flex-col items-center justify-center py-4 bg-gray-50 rounded-2xl">
                 <span className="text-gray-500 font-medium">Total a Receber</span>
                 <span className="text-4xl font-bold text-blue-900 mt-1">R$ {total.toFixed(2)}</span>
@@ -461,7 +461,7 @@ export function Sale() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-gray-50">
+            <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
               <button 
                 onClick={confirmSale}
                 className="w-full bg-green-500 text-white font-bold py-4 rounded-xl text-lg hover:bg-green-600 transition-all shadow-md transform active:scale-[0.98]"
